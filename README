@@ -1,0 +1,8 @@
+Project 1
+Dan and Will
+
+Our approach for this project was fairly straightforward. We first got a script working with hardcoded values and just the HELLO message. We then gradually added lines until we were looping through STATUS messages and returning SOLUTION messages. Once we get the BYE message we print it and exit. We then added SSL support followed by command line support.
+
+We had a few challenges to overcome while writing this project. Most of them were a result of simple spelling mistakes and general forgetfulness. The hardest part was transitioning from hardcoded values to accepting command line arguments. Getting the correct port number was complicated since SSL requres a different port than the default and the -p flag can then overwrite this.
+
+Testing was relatively simple. After each change we made sure that the script still ran without error and produced the expected output. All testing was done manually.

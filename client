@@ -1,0 +1,56 @@
+#!/usr/bin/python
+#team dan_and_will
+
+import socket
+import ssl
+import sys
+import getopt
+
+opts, args = getopt.getopt(sys.argv[1:],"sp:")
+
+port = 27993  #default port
+use_ssl = False #don't use SSL by default
+
+opts = sorted(opts, reverse=True) #make sure the SSL arg is parsed first so it doesn't overwrite port in -p
+for opt, arg in opts:
+  if opt == "-p":
+    port = int(arg) 
+  if opt  == "-s":
+    use_ssl = True
+    port = 27994 #default port for SSL - can be overridden later
+
+hostname, nu_id = args #set up host and NU ID
+
+
+#create the socket and connect to the server
+client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+if use_ssl:
+  client_socket = ssl.wrap_socket(client_socket) #make the socket an SSL socket
+
+
+#Set up useful string variables
+class_name = "cs3700spring2016"  
+hello_msg = "HELLO {nu_id}".format(nu_id=nu_id) 
+generic_msg = "cs3700spring2016 {msg}\n"
+full_message = generic_msg.format(msg=hello_msg).encode() #remove null characters
+
+#hit the server
+client_socket.connect((hostname, port))
+client_socket.send(full_message) #escape null characters
+
+
+while True: #loop until the bye message
+  response = client_socket.recv(4096) #accept a large amount of data back because why not
+  if response == '':
+    raise RuntimeError("We messed up") #notification socket connection is broken
+  _, response_status , msg = response.split(" ", 2) 
+  if response_status == "BYE": #"BYE" means we're done
+    break
+  answer = int(eval(msg)) #parse the server's response
+  full_message = generic_msg.format(msg=answer).encode()
+  client_socket.send(full_message) #send the solution
+
+client_socket.shutdown(2) #shutdown socket because that's common practice, apparently
+client_socket.close()     #close the connection
+print(response) #We made it!
