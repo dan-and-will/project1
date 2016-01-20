@@ -1,56 +1,94 @@
 #!/usr/bin/python
 #team dan_and_will
 
+import getopt
 import socket
 import ssl
 import sys
-import getopt
 
-opts, args = getopt.getopt(sys.argv[1:],"sp:")
+STATUS_REGEX = r'^cs3700spring2016 STATUS \d{1,4} (\/|\*|\-|\+) \d{1,4}$'
+BYE_REGEX = r'^cs3700spring2016 BYE [0-9a-f]{64}$'
+MESSAGE_FORMAT = "cs3700spring2016 {msg}\n"
 
-port = 27993  #default port
-use_ssl = False #don't use SSL by default
+def get_socket(use_ssl):
+    """
+    create and return socket
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if use_ssl:
+        sock = ssl.wrap_socket(sock) #make the socket an SSL socket
+    return sock
 
-opts = sorted(opts, reverse=True) #make sure the SSL arg is parsed first so it doesn't overwrite port in -p
-for opt, arg in opts:
-  if opt == "-p":
-    port = int(arg) 
-  if opt  == "-s":
-    use_ssl = True
-    port = 27994 #default port for SSL - can be overridden later
+def validate_response(response):
+    """
+    check if server response is validate_response
+    """
+    import re
+    if response == '':
+        raise RuntimeError('Socket connection broken')
+    status_match = re.match(STATUS_REGEX, response)
+    bye_match = re.match(BYE_REGEX, response)
+    if not (bool(status_match) or bool(bye_match)):
+        raise RuntimeError("Invalid response")
 
-hostname, nu_id = args #set up host and NU ID
+def parse_response(response):
+    """
+    parse response from server and return useful variables
+    """
+    validate_response(response)
+    _, status, msg = response.split(' ', 2)
+    return status, msg
 
+def parse_cmd_line():
+    """
+    parse command line arguments and return useful variables
+    """
+    port = 27993  #default port
+    use_ssl = False #don't use SSL by default
+    opts, args = getopt.getopt(sys.argv[1:], "sp:")
+    if len(args) != 2:
+        raise RuntimeError('User must supply a hostname and NEU id as arguments in that order')
+    hostname, nu_id = args
+    #make sure the SSL arg is parsed first so it doesn't overwrite port in -p
+    opts = sorted(opts, reverse=True)
+    # parse commandline flags
+    for opt, arg in opts:
+        if opt == "-p":
+            port = int(arg)
+        if opt  == "-s":
+            use_ssl = True
+            port = 27994 #default port for SSL - can be overridden later
+    return use_ssl, port, hostname, nu_id
 
-#create the socket and connect to the server
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def create_message(msg):
+    """
+    simplify creation of encoded message to send to server
+    """
+    return MESSAGE_FORMAT.format(msg=msg).encode() #remove null characters
 
-if use_ssl:
-  client_socket = ssl.wrap_socket(client_socket) #make the socket an SSL socket
+def main():
+    """
+    main method
+    runs code necessary to complete project
+    """
+    use_ssl, port, hostname, nu_id = parse_cmd_line()
+    hello_msg = create_message("HELLO {nu_id}".format(nu_id=nu_id))
+    client_socket = get_socket(use_ssl)
+    client_socket.connect((hostname, port)) #connect to the server
+    client_socket.send(hello_msg)
+    while True: #loop until the bye message
+        response = client_socket.recv(256) # max response length
+        response_status , msg = parse_response(response)
+        if response_status == 'BYE':
+            break
+        # solve math problem and round down
+        solution = int(eval(msg))
+        solution_message = create_message(solution)
+        client_socket.send(solution_message) #send the solution
 
+    client_socket.shutdown(socket.SHUT_RDWR) # shutdown socket
+    client_socket.close() # close the connection
+    print(response) # We made it!
 
-#Set up useful string variables
-class_name = "cs3700spring2016"  
-hello_msg = "HELLO {nu_id}".format(nu_id=nu_id) 
-generic_msg = "cs3700spring2016 {msg}\n"
-full_message = generic_msg.format(msg=hello_msg).encode() #remove null characters
-
-#hit the server
-client_socket.connect((hostname, port))
-client_socket.send(full_message) #escape null characters
-
-
-while True: #loop until the bye message
-  response = client_socket.recv(4096) #accept a large amount of data back because why not
-  if response == '':
-    raise RuntimeError("We messed up") #notification socket connection is broken
-  _, response_status , msg = response.split(" ", 2) 
-  if response_status == "BYE": #"BYE" means we're done
-    break
-  answer = int(eval(msg)) #parse the server's response
-  full_message = generic_msg.format(msg=answer).encode()
-  client_socket.send(full_message) #send the solution
-
-client_socket.shutdown(2) #shutdown socket because that's common practice, apparently
-client_socket.close()     #close the connection
-print(response) #We made it!
+if __name__ == '__main__':
+    main()
