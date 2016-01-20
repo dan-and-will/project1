@@ -37,7 +37,7 @@ def parse_response(response):
     """
     validate_response(response)
     _, status, msg = response.split(' ', 2)
-    return status, msg
+    return status, msg.strip()
 
 def parse_cmd_line():
     """
@@ -71,6 +71,7 @@ def main():
     main method
     runs code necessary to complete project
     """
+    secret_key = None
     use_ssl, port, hostname, nu_id = parse_cmd_line()
     hello_msg = create_message("HELLO {nu_id}".format(nu_id=nu_id))
     client_socket = get_socket(use_ssl)
@@ -80,6 +81,7 @@ def main():
         response = client_socket.recv(256) # max response length
         response_status , msg = parse_response(response)
         if response_status == 'BYE':
+            secret_key = msg
             break
         # solve math problem and round down
         solution = int(eval(msg))
@@ -88,7 +90,7 @@ def main():
 
     client_socket.shutdown(socket.SHUT_RDWR) # shutdown socket
     client_socket.close() # close the connection
-    print(response) # We made it!
+    print('secret key for {nu_id} is {secret_key}'.format(nu_id=nu_id, secret_key=secret_key)) # We made it!
 
 if __name__ == '__main__':
     main()
