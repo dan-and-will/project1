@@ -2,6 +2,7 @@
 #team dan_and_will
 
 import getopt
+import re
 import socket
 import ssl
 import sys
@@ -23,7 +24,6 @@ def validate_response(response):
     """
     check if server response is validate_response
     """
-    import re
     if response == '':
         raise RuntimeError('Socket connection broken')
     status_match = re.match(STATUS_REGEX, response)
